@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -u
+
+echo "turbo dry run"
+turbo run build --dry-run=json > /tmp/dry.json 2>/dev/null
+
+echo "----PUT----"
+API="https://vercel.com/api"
+# TEAM="$VERCEL_ARTIFACTS_OWNER"
+echo "TEAM: $VERCEL_ARTIFACTS_OWNER"
+TEAM="team_SxcBaAjO2azHOPD9Shh60vn7"
+TOKEN="$VERCEL_ARTIFACTS_TOKEN"
+HASH="da2cbac07f32df91"
+echo $TEAM
+
+mkdir -p public/
+echo "But you are not the only one on the road now mwahahahahaha" >> public/index.html
+tar -cf artifact.tar -C /vercel/path0 app/web/dist app/web/.turbo/turbo-build.log public/
+zstd -f artifact.tar
+
+echo "curl -sS -X PUT $API/v8/artifacts/$HASH?teamId=$TEAM"
+
+curl -sS -X PUT \
+  "$API/v8/artifacts/$HASH?teamId=$TEAM" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/octet-stream" \
+  -H "x-artifact-duration: 0" \
+  --data-binary @artifact.tar.zst \
+  -w 'PUT HTTP %{http_code}\n'
+
+echo "----EXISTS (HEAD)----"
+curl -sS -I \
+  "$API/v8/artifacts/$HASH?teamId=$TEAM" \
+  -H "Authorization: Bearer $TOKEN" \
+  -w 'HEAD HTTP %{http_code}\n'
+
+echo "----GET----"
+curl -sS \
+  "$API/v8/artifacts/$HASH?teamId=$TEAM" \
+  -H "Authorization: Bearer $TOKEN" \
+  -w '\nGET HTTP %{http_code}\n'
+
+mkdir -p public && echo 'go see prod babe -->' >> public/index.html
